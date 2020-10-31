@@ -1,0 +1,40 @@
+import string;
+import lingo/pegcode/driver;
+
+Expr ::= IntConst, Mul, Add;
+IntConst: (value:int);
+Mul: (left: Expr, right: Expr);
+Add: (left: Expr, right: Expr);
+Div: ();
+
+Sub: ();
+Neg: (arg: Expr);
+Var: (name: string);
+s2Ex(s:string)->Expr{
+    gram = "#include C:\Development\MTK_labs\arr_gram.lingo";
+    parsic(compilePegGrammar(gram), s, defaultPegActions);
+}
+
+Calc(e: Expr)->int{
+    switch(e: Expr){
+        Add(x, y): Calc(x) + Calc(y);
+        Mul(x, y): Calc(x) * Calc(y);
+        IntConst(x): x;
+    }
+}
+
+Print(e: Expr)->string{
+    switch(e: Expr){
+        IntConst(x) : i2s(x);
+        Mul(l, r): Print(l) + "*" + Print(r);
+        Add(l, r): "(" + Print(l) + "+" + Print(r) + ")";
+    }
+}
+
+main() {
+    //e = Mul(Add(IntConst(4), Mul(IntConst(2), IntConst(3))), IntConst(5));
+    e = "(1+3)*4";
+    println(Calc(s2Ex(e)));
+    println(Print(s2Ex(e)));
+    quit(0);
+}

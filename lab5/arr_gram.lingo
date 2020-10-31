@@ -1,0 +1,6 @@
+S = mult | plus | int;
+SPACE = (' ' | '\t' | '\r' | '\n');
+plus = SPACE* "(" SPACE* S:l SPACE* "+" SPACE* S:r SPACE* ")" SPACE* {Add(:l,:r)} | SPACE* int;
+mult = SPACE* "(" SPACE* S:l SPACE* "*" SPACE* S:r SPACE* ")" SPACE* {Mul(:l,:r)} | SPACE* plus:l SPACE* "*" S:r {Mul(:l,:r)};
+digit = '0'-'9';
+int = digit + $s{IntConst(s2i(:s))};
