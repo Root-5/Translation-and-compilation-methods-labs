@@ -1,0 +1,8 @@
+S = int | plus | mult | del_ | sub_ ;
+SPACE = (' ' | '\t' | '\r' | '\n');
+plus = SPACE* int | SPACE* "(" SPACE* S:l SPACE* "," SPACE* S:r SPACE* "+" SPACE* ")" SPACE* {Add(:l,:r)};
+mult = SPACE* "(" SPACE* S:l SPACE* "," SPACE* S:r SPACE* "*" SPACE* ")" SPACE* {Mul(:l,:r)};
+del_ = SPACE* "(" SPACE* S:l SPACE* "," SPACE* S:r SPACE* "/" SPACE* ")" SPACE* {Div(:l,:r)};
+sub_ = SPACE* "(" SPACE* S:l SPACE* "," SPACE* S:r SPACE* "-" SPACE* ")" SPACE* {Sub(:l,:r)} | SPACE* "(" SPACE* S:x SPACE* "-" SPACE* ")" SPACE* {Neg(:x)};
+digit = '0'-'9';
+int = digit + $s{IntConst(s2i(:s))}; 
