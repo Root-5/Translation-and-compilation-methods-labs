@@ -39,7 +39,7 @@ Print(e: Expr)->string{
 }
 
 main() {
-    e = "((4,((1,2+),2/)*)-)";
+    e = "((4,((1,2+),3/)*)-)";
     println(Calc(s2Ex(e)));
     println(Print(s2Ex(e)));
     quit(0);
