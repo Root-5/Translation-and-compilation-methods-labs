@@ -1,47 +1,87 @@
 import string;
 import lingo/pegcode/driver;
 
-Expr ::= IntConst, Mul, Add, Div, Sub, Neg;
-
+Expr ::= IntConst, Mul, Add, Div, Sub, Neg, Var, RationalConst;
 IntConst: (value:int);
-Neg: (value: Expr);
+RationalConst(value: Rational);
 Mul: (left: Expr, right: Expr);
 Add: (left: Expr, right: Expr);
 Div: (left: Expr, right: Expr);
 Sub: (left: Expr, right: Expr);
-
+Neg: (arg: Expr);
 Var: (name: string);
-s2Ex(s:string)->Expr{
-    gram = "#include E:\flow9\labs\arr_gram.lingo";
+
+parse(s:string)->Expr{
+    gram = "arr_gram.lingo";
     parsic(compilePegGrammar(gram), s, defaultPegActions);
 }
 
-Calc(e: Expr)->int{
+Rational(n:int, d:int);
+
+rational(a:int) ->Rational{
+    Rational(a,1);
+}
+
+Rational2s(r:Rational){
+    i2s(r.n)+"\\"+i2s(r.d);
+}
+
+maybeOp(f: (?, ??)->???, arg1:Maybe<?>, arg2:Maybe<??>)->Maybe<???>{
+    switch (arg1) {
+        None(): None();
+        Some(x) :
+            switch (arg2) {
+                None(): None();
+                Some(y): Some(f(x,y));
+            }
+    }
+}
+
+Calc(e: Expr, value: [Pair<string, Rational>])-> Maybe<Rational>{
     switch(e: Expr){
-        IntConst(x): x;
-        Neg(x): 0 - Calc(x);
-        Add(x, y): Calc(x) + Calc(y);
-        Div(x, y): Calc(x) / Calc(y);
-        Mul(x, y): Calc(x) * Calc(y);
-        Sub(x, y): Calc(x) - Calc(y);
+        IntConst(c): Some(rational(c));
+        RationalConst(rat) : Some(rat);
+        Add(l, r): maybeOp(\x,y-> Rational(x.n*y.d+y.n*x.d, x.d*y.d), Calc(l, value), Calc(r, value));
+        Mul(l, r): maybeOp(\x,y-> Rational(x.n*y.n, x.d*y.d), Calc(l, value), Calc(r, value));
+        Sub(l, r): maybeOp(\x,y-> Rational(x.n*y.d-y.n*x.d, x.d*y.d), Calc(l, value), Calc(r, value));
+        Div(l, r): maybeOp(\x,y-> Rational(x.n*y.d, x.d*y.n), Calc(l, value), Calc(r, value));
+        Neg(v): maybeOp(\x,y-> Rational(x.n*y.n, x.d*y.d), Calc(v, value), Some(rational(-1)));
+        Var(x): {
+            index = findi(value, \p->p.first == x);
+            switch (index) {
+                None(): None();
+                Some(i): Some(value[i].second);
+            }
+        }
     }
 }
 
 Print(e: Expr)->string{
     switch(e: Expr){
         IntConst(x) : i2s(x);
-        Neg(x): "-" + Print(x);
+        RationalConst(rat) : Rational2s(rat);
         Mul(l, r): Print(l) + "*" + Print(r);
-        Div(l, r): Print(l) + "/" + Print(r);
         Add(l, r): "(" + Print(l) + "+" + Print(r) + ")";
+        Div(l, r):  Print(l) + "/" + Print(r);
         Sub(l, r): "(" + Print(l) + "-" + Print(r) + ")";
+        Neg(arg): "(" + "-" + Print(arg) + ")";
+        Var(x): x;
     }
 }
 
 main() {
+    x = "x";
+    a = "a"; 
+    values = [Pair(x, Rational(1,2)), Pair(a, Rational(10,1))];
     //e = Mul(Add(IntConst(4), Mul(IntConst(2), IntConst(3))), IntConst(5));
-    e = "-((((2+3)*3)-1)/4)";
-    println(Calc(s2Ex(e)));
-    println(Print(s2Ex(e)));
+    e = Add(Mul(Mul(Var(x), Var(x)), Var(a)), Neg(Add(Var(x), IntConst(42))));
+    //e = "(1+2)*4";
+    //e = "5*5/5/5";
+    println(Print(e));
+    //println(Calc(parse(e),values));
+    result = Calc(e, values);
+    println(result);
+    //println(Calc(s2Ex(e)));
+    //println(Print(s2Ex(e)));
     quit(0);
 }

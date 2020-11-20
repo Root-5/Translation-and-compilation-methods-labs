@@ -1,46 +1,94 @@
 import string;
 import lingo/pegcode/driver;
 
-Expr ::= IntConst, Mul, Add, Div, Sub, Neg;
-
-IntConst: (value:int);
-Neg: (value: Expr); 
+Expr ::= IntConst, Mul, Add;
+IntConst: (value: int);
 Mul: (left: Expr, right: Expr);
 Add: (left: Expr, right: Expr);
-Div: (left: Expr, right: Expr);
-Sub: (left: Expr, right: Expr);
 
-Var: (name: string);
-s2Ex(s:string)->Expr{
-    gram = "\arr_gram6_reverse.lingo";
+Rpn ::= IntConstRpn, MulRpn, AddRpn;
+IntConstRpn: (value: int);
+AddRpn();
+MulRpn();
+
+
+parse(s:string) -> Expr{
+    gram = "arr_gram.lingo";
     parsic(compilePegGrammar(gram), s, defaultPegActions);
 }
 
-Calc(e: Expr)->int{
-    switch(e: Expr){
-        IntConst(x): x;
-        Neg(x): 0 - Calc(x);
-        Add(x, y): Calc(x) + Calc(y);
-        Div(x, y): Calc(x) / Calc(y);
-        Mul(x, y): Calc(x) * Calc(y);
-        Sub(x, y): Calc(x) - Calc(y);
+expr2rpn(e : Expr) -> [Rpn]{
+    switch (e){
+        IntConst(v): [IntConstRpn(v)];
+        Add(l, r): concat(concat(expr2rpn(l), expr2rpn(r)), [AddRpn()]);
+        Mul(l, r): concat(concat(expr2rpn(l), expr2rpn(r)), [MulRpn()]);
     }
 }
 
-Print(e: Expr)->string{
+rpn2string(erpn : [Rpn]) -> string{
+    fold(erpn, "", \acc, e -> {
+            switch (e) {
+                IntConstRpn(v): acc + i2s(v) + " ";
+                AddRpn(): acc + "+ ";
+                MulRpn(): acc + "* ";
+            }
+        }
+    )
+}
+
+string2rpn(rpnInStringing : string) -> [Rpn]{
+    stack: ref [Rpn] = ref [];
+    strSplitIterate(rpnInStringing, " ", \ piece : string -> {
+        if(isDigit(piece)){
+            refArrayPush(stack, IntConstRpn(s2i(piece)));
+        } else if(piece == "+"){
+                refArrayPush(stack, AddRpn());
+            } else if(piece == "*"){
+                refArrayPush(stack, MulRpn());
+            } else {
+                println("Bad string");
+            }
+    });
+    ^stack;
+}
+
+pop(stack: ref[?])-> ?{
+    index = length(^stack) - 1;
+    el = ^stack[index];
+    stack := subrange(^stack, 0, length(^stack)-1);
+    el;
+}
+
+CalcRpn(rpn: [Rpn]) -> int{
+    r = fold(rpn, ref [], \stack, exp_rpn ->{
+        switch(exp_rpn){
+            IntConstRpn(c): refArrayPush(stack, c);
+            AddRpn(): refArrayPush(stack, pop(stack) + pop(stack));
+            MulRpn(): refArrayPush(stack, pop(stack) * pop(stack));
+        };
+        stack;
+    })
+    pop(r);
+}
+
+Print(e: Expr) -> string{
     switch(e: Expr){
-        IntConst(x) : i2s(x);
-        Neg(x): "(-" + Print(x) + ")";
+        IntConst(v) : i2s(v);
         Mul(l, r): Print(l) + "*" + Print(r);
-        Div(l, r): Print(l) + "/" + Print(r);
         Add(l, r): "(" + Print(l) + "+" + Print(r) + ")";
-        Sub(l, r): "(" + Print(l) + "-" + Print(r) + ")";
     }
 }
 
 main() {
-    e = "((4,((1,2+),3/)*)-)";
-    println(Calc(s2Ex(e)));
-    println(Print(s2Ex(e)));
+    e = Mul(Add(IntConst(4), Mul(IntConst(2), IntConst(3))), IntConst(5));
+    println("expr to string: " + Print(e));
+    println("expr to rpn_expr: ");
+    println(expr2rpn(e));
+    println("expr to rpn_string: " + rpn2string(expr2rpn(e))); 
+
+    rpnInString = "1 2 3 4 + * +";
+    println("rpn_string to rpn_expr: ");
+    println(string2rpn(rpnInString));
+    println(CalcRpn(string2rpn(rpnInString))) ;
     quit(0);
 }
