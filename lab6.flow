@@ -1,0 +1,46 @@
+import string;
+import lingo/pegcode/driver;
+
+Expr ::= IntConst, Mul, Add, Div, Sub, Neg;
+
+IntConst: (value:int);
+Neg: (value: Expr); 
+Mul: (left: Expr, right: Expr);
+Add: (left: Expr, right: Expr);
+Div: (left: Expr, right: Expr);
+Sub: (left: Expr, right: Expr);
+
+Var: (name: string);
+s2Ex(s:string)->Expr{
+    gram = "\arr_gram6_reverse.lingo";
+    parsic(compilePegGrammar(gram), s, defaultPegActions);
+}
+
+Calc(e: Expr)->int{
+    switch(e: Expr){
+        IntConst(x): x;
+        Neg(x): 0 - Calc(x);
+        Add(x, y): Calc(x) + Calc(y);
+        Div(x, y): Calc(x) / Calc(y);
+        Mul(x, y): Calc(x) * Calc(y);
+        Sub(x, y): Calc(x) - Calc(y);
+    }
+}
+
+Print(e: Expr)->string{
+    switch(e: Expr){
+        IntConst(x) : i2s(x);
+        Neg(x): "(-" + Print(x) + ")";
+        Mul(l, r): Print(l) + "*" + Print(r);
+        Div(l, r): Print(l) + "/" + Print(r);
+        Add(l, r): "(" + Print(l) + "+" + Print(r) + ")";
+        Sub(l, r): "(" + Print(l) + "-" + Print(r) + ")";
+    }
+}
+
+main() {
+    e = "((4,((1,2+),3/)*)-)";
+    println(Calc(s2Ex(e)));
+    println(Print(s2Ex(e)));
+    quit(0);
+}
