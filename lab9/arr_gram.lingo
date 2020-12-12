@@ -1,0 +1,22 @@
+s = sum|prod|int|sub|div|minus|var;
+
+sum = ws "(" ws s:l ws "+" ws s:r ws ")" ws { ArSum(:l, :r) };
+
+prod = ws "(" ws s:l ws "*" ws s:r ws ")" ws { ArProd(:l, :r) };
+
+sub = ws "(" ws s:l ws "-" ws s:r ws ")" ws { ArSub(:l, :r) };
+
+div = ws "(" ws s:l ws "/" ws s:r ws ")" ws { ArDiv(:l, :r) };
+
+minus = ws "(" ws "-" ws s:r ws ")" ws { ArMinus(:r) };
+
+int = digit + $x { ArInt(s2i(:x)) };
+
+digit = '0'-'9';
+
+var = letter $s { ArVar(:s) };
+
+letter = 'a'-'z';
+
+ws = sp*;
+sp = " "|"\t"|"\n"|"\r";

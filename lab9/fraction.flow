@@ -1,0 +1,61 @@
+import math/math;
+import string;
+
+export {
+    Fraction(num: int, den: int);
+    frProd(l: Fraction, r: Fraction) -> Fraction;
+    frDiv(l: Fraction, r: Fraction) -> Fraction;
+    frSum(l: Fraction, r: Fraction) -> Fraction;
+    frSub(l: Fraction, r: Fraction) -> Fraction;
+    frMinus(r: Fraction) -> Fraction;
+    
+    fr2s(e: Fraction) -> string;
+}
+
+frProd(l: Fraction, r: Fraction) -> Fraction {
+    commonDiv = gcd(l.num * r.num, l.den * r.den);
+    Fraction((l.num * r.num) / commonDiv, (l.den * r.den) / commonDiv);
+}
+
+frDiv(l: Fraction, r: Fraction) -> Fraction {
+    commonDiv = gcd(l.num * r.den, l.den * r.num);
+    Fraction((l.num * r.den) / commonDiv, (l.den * r.num) / commonDiv);
+}
+
+frSum(l: Fraction, r: Fraction) -> Fraction{
+    if(l.den == r.den) {
+        Fraction(l.num + r.num, l.den);
+    } else {
+        numerator = l.num * r.den + r.num * l.den;
+        denum = l.den * r.den;
+        commonDiv = gcd(numerator, denum);
+        Fraction(numerator / commonDiv, denum / commonDiv);
+    }
+}
+
+frSub(l: Fraction, r: Fraction) -> Fraction {
+    if(l.den == r.den){
+        Fraction(l.num - r.num, l.den);
+    } else {
+        numerator = l.num * r.den - r.num * l.den;
+        denum = l.den * r.den;
+        commonDiv = gcd(numerator, l.den * r.den);
+        Fraction(numerator / commonDiv, denum / commonDiv);
+    }
+}
+
+frMinus(v: Fraction) -> Fraction{
+    Fraction(-v.num, v.den);
+}
+
+fr2s(v:Fraction) -> string{
+    if (v.den == 1) {
+        i2s(v.num);
+    } else {
+        if (v.den < 0) {
+            i2s(-v.num) + "/" + i2s(-v.den);
+        } else {
+            i2s(v.num) + "/" + i2s(v.den);
+        }
+    }
+}

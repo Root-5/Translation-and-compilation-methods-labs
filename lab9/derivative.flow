@@ -1,0 +1,166 @@
+import expr;
+
+export {
+    derive(expr: ArExp, variable: ArVar) -> ArExp;
+    simplify(expr: ArExp) -> ArExp;
+}
+
+isInt(expr: ArExp) -> bool {
+    switch(expr) {
+        ArInt(v): true;
+        default: false;
+    }
+}
+
+subInts(l: ArExp, r: ArExp) -> ArInt {
+    switch(l) {
+        ArInt(a):
+            switch(r) {
+                ArInt(b): ArInt(a - b);
+                default: ArInt(0);
+            }
+        default: ArInt(0);
+    }
+}
+
+multInts(l: ArExp, r: ArExp) -> ArInt {
+    switch(l) {
+        ArInt(a):
+            switch(r) {
+                ArInt(b): ArInt(a * b);
+                default: ArInt(0);
+            }
+        default: ArInt(0);
+    }
+}
+
+sumInts(l: ArExp, r: ArExp) -> ArInt {
+    switch(l) {
+        ArInt(a):
+            switch(r) {
+                ArInt(b): ArInt(a + b);
+                default: ArInt(0);
+            }
+        default: ArInt(0);
+    }
+}
+
+isNeg(expr: ArExp) -> bool {
+    switch(expr) {
+        ArMinus(v): true;
+        default: false;
+    }
+}
+
+// (a - (-b)) = (a + b)
+changeSign(expr: ArExp) -> ArExp {
+    switch(expr) {
+        ArMinus(v): 
+            switch(v) {
+                default: v;
+            }
+        default: expr;
+    }
+}
+
+simplify(expr: ArExp) -> ArExp {
+    simplified = switch (expr) {
+        ArVar(v): ArVar(v);
+        ArInt(v): ArInt(v);
+        ArMinus(v): ArMinus(simplify(v));
+        
+        ArSum(l, r): {
+            if (isInt(l) && isInt(r)){
+                sumInts(l, r);
+            } else if (l == ArInt(0)) {
+                simplify(r);
+            } else if (r == ArInt(0)) {
+                simplify(l);
+            } else if ((l == ArInt(0)) && (r == ArInt(0))) {
+                ArInt(0);
+            } else {
+                ArSum(simplify(l), simplify(r));
+            }
+        }
+
+        ArSub(l, r): {
+            if (isInt(l) && isInt(r)){
+                subInts(l, r);
+            } else if (l == ArInt(0)) {
+                ArMinus(simplify(r));
+            } else if (r == ArInt(0)) {
+                simplify(l);
+            } else if (l == r) {
+                ArInt(0);
+            } else if (isNeg(r)) {
+                ArSum(simplify(l), simplify(changeSign(r)));
+            } else {
+                ArSub(simplify(l), simplify(r));
+            }
+        }
+
+        ArProd(l, r): {
+            if (isInt(l) && isInt(r)){
+                multInts(l, r);
+            } else if (l == ArInt(-1)) {
+                ArMinus(simplify(r));
+            } else if (r == ArInt(-1)) {
+                ArMinus(simplify(l));
+            } else if (l == ArInt(1)) {
+                simplify(r);
+            } else if (r == ArInt(1)) {
+                simplify(l);
+            } else if ((l == ArInt(0)) || (r == ArInt(0))) {
+                ArInt(0);
+            } else {
+                ArProd(simplify(l), simplify(r));
+            }
+        }
+
+        ArDiv(l, r): {
+            if (l == ArInt(0)) {
+                ArInt(0);
+            } else if (l == r) {
+                ArInt(1);
+            } else if (r == ArInt(1)) {
+                simplify(l);
+            } else {
+                ArDiv(simplify(l), simplify(r));
+            }
+        }
+    }
+    if (simplified == expr) {
+        simplified;
+    } else {
+        simplify(simplified);
+    }
+}
+
+
+derive(expr: ArExp, variable: ArVar) -> ArExp {
+    switch(expr) {
+        ArProd(l, r): {
+            ArSum(ArProd(derive(l, variable), r), ArProd(l, derive(r, variable)));
+        } 
+        ArSum(l ,r): {
+            ArSum(derive(l, variable), derive(r, variable));
+        }
+        ArSub(l ,r): {
+            ArSub(derive(l, variable), derive(r, variable));
+        }
+        ArDiv(l, r): {
+            ArDiv(ArSub(ArProd(derive(l, variable), r), ArProd(derive(r, variable), l)), ArProd(r, r));
+        }
+        ArInt(v): ArInt(0);
+        ArVar(var): {
+            if (var == variable.var) {
+                ArInt(1);
+            } else {
+                ArInt(0);
+            }
+        }
+        ArMinus(v): {
+            ArMinus(derive(v, variable));
+        }
+    }
+}

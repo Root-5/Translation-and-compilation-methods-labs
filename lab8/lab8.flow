@@ -1,0 +1,227 @@
+import string;
+import math/math;
+import lingo/pegcode/driver;
+
+Expr ::= IntConst, Mul, Add, Div, Sub, Neg, Var;
+IntConst: (value:int);
+Mul: (left: Expr, right: Expr);
+Add: (left: Expr, right: Expr);
+Div: (left: Expr, right: Expr);
+Sub: (left: Expr, right: Expr);
+Neg: (arg: Expr);
+Var: (name: string);
+
+parse(s:string)->Expr{
+    gram = "#include arr_gram.lingo";
+    parsic(compilePegGrammar(gram), s, defaultPegActions);
+}
+
+Rational(n:int, d:int);
+
+rational(a:int) ->Rational{
+    Rational(a,1);
+}
+
+Rational2s(r:Rational){
+    if(r.d == 1) {
+        i2s(r.n)
+    } else {
+        i2s(r.n)+"/"+i2s(r.d);
+    }
+}
+
+maybeOp(f: (?, ??)->???, arg1:Maybe<?>, arg2:Maybe<??>)->Maybe<???>{
+    switch (arg1) {
+        None(): None();
+        Some(x) :
+            switch (arg2) {
+                None(): None();
+                Some(y): Some(f(x,y));
+            }
+    }
+}
+
+//Rational part
+RationalAdd(x: Rational, y: Rational){
+    num = x.n * y.d + y.n * x.d;
+    den = x.d * y.d;
+    nod = gcd(num, den);
+    Rational(num / nod, den / nod);
+}
+
+RationalMul(x: Rational, y: Rational){
+    num = x.n * y.n;
+    den = x.d * y.d;
+    nod = gcd(num, den);
+    Rational(num / nod, den / nod);
+}
+
+RationalSub(x: Rational, y: Rational){
+    num = x.n * y.d - y.n * x.d;
+    den = x.d * y.d;
+    nod = gcd(num, den);
+    Rational(num / nod, den / nod);
+}
+
+RationalDiv(x: Rational, y: Rational){
+    num = x.n * y.d;
+    den = x.d * y.n;
+    nod = gcd(num, den);
+    Rational(num / nod, den / nod);
+}
+
+
+Calc(e: Expr, value: [Pair<string, Rational>])-> Maybe<Rational>{
+    switch(e: Expr){
+        IntConst(c): Some(rational(c));
+        Add(l, r): maybeOp(\x,y-> RationalAdd(x, y), Calc(l, value), Calc(r, value));
+        Mul(l, r): maybeOp(\x,y-> RationalMul(x, y), Calc(l, value), Calc(r, value));
+        Sub(l, r): maybeOp(\x,y-> RationalSub(x, y), Calc(l, value), Calc(r, value));
+        Div(l, r): maybeOp(\x,y-> RationalDiv(x, y), Calc(l, value), Calc(r, value));
+        Neg(v): maybeOp(\x,y-> RationalMul(x, y), Calc(v, value), Some(rational(-1)));
+        Var(x): {
+            index = findi(value, \p->p.first == x);
+            switch (index) {
+                None(): None();
+                Some(i): Some(value[i].second);
+            }
+        }
+    }
+}
+
+//Derivative part
+derivativeMul(m : Mul, var : Var){
+    ld = derivative(m.left, var);
+    rd = derivative(m.right, var);
+    Add(Mul(ld, m.right), Mul(m.left ,rd));
+}
+
+derivativeDiv(d : Div, var : Var){
+    ld = derivative(d.left, var);
+    rd = derivative(d.right, var);
+    Div(Sub(Mul(ld, d.right), Mul(d.left, rd)), Mul(d.right, d.right));
+}
+
+derivative(e : Expr, var : Var){
+    switch(e){
+        IntConst(c): IntConst(0);
+        Add(l,r): Add(derivative(l, var), derivative(r, var));
+        Mul(l,r): derivativeMul(e, var);
+        Sub(l,r): Sub(derivative(l, var), derivative(r, var));
+        Div(l,r): derivativeDiv(e, var);
+        Neg(v): Mul(IntConst(-1), derivative(v, var));
+        Var(x): {
+            if (e == var ) {
+                IntConst(1);
+            }
+            else {
+                IntConst(0);
+            }
+        }
+    }
+}
+
+//Simplify part
+simplifyAdd(e : Add) -> Expr{
+    l = simplify(e.left);
+    r = simplify(e.right);
+    switch (l){
+        IntConst(c): {
+            switch (r) {
+               IntConst(d): IntConst(c+d);
+               default: {
+                   if (c == 0) {
+                       r;
+                   }
+                   else {
+                       Add(l,r);
+                   }
+               }
+            }
+        }
+        default: {
+            if (r == IntConst(0)) {
+                l;
+            }
+            else {
+                Add(l,r);
+            }
+        }
+    }
+}
+
+simplifyMul(e: Mul) -> Expr{
+    l = simplify(e.left);
+    r = simplify(e.right);
+    if (l == IntConst(1)){
+        r;
+    } else 
+        if (r == IntConst(1)){
+            l;
+        } else 
+            if (l == IntConst(0) || r == IntConst(0)){
+                IntConst(0);
+            } else {
+                Mul(l, r);
+            }
+}
+
+simplifySub(e: Sub) -> Expr{
+    l = simplify(e.left);
+    r = simplify(e.right);
+    if (r == IntConst(0)){
+        l;
+    } else{
+        Sub(l, r);
+    }
+}
+
+simplifyDiv(e : Div) -> Expr{
+    l = simplify(e.left);
+    r = simplify(e.right);
+    if (l == r){
+        IntConst(1);
+    } else 
+        if (r == IntConst(1)){
+            l;
+        } else 
+            if (l == IntConst(0)){
+                IntConst(0);
+            } else {
+                Div(l, r);
+            }
+}
+
+simplify(e : Expr)-> Expr{
+    switch (e){
+        Add(l, r): simplifyAdd(e);
+        Mul(l, r): simplifyMul(e);
+        Sub(l, r): simplifySub(e);
+        Div(l, r): simplifyDiv(e);
+        default: e;
+    }
+}
+
+print(e: Expr)->string{
+    switch(e: Expr){
+        IntConst(x) : i2s(x);
+        Mul(l, r): print(l) + "*" + print(r);
+        Add(l, r): "(" + print(l) + "+" + print(r) + ")";
+        Div(l, r):  print(l) + "/" + print(r);
+        Sub(l, r): "(" + print(l) + "-" + print(r) + ")";
+        Neg(arg): "(" + "-" + print(arg) + ")";
+        Var(x): x;
+    }
+}
+
+main() {
+    x = "x";
+    a = "a"; 
+    values = [Pair(x, Rational(1,2)), Pair(a, Rational(10,1))];
+    e = "(((2*x)*x) + 15)";
+    println(print(parse(e)));
+    println(print(derivative(parse(e), Var(x))));
+    println(print(simplify(derivative(parse(e), Var(x)))));
+    println(Calc(parse(e),values));
+    quit(0);
+}

@@ -1,0 +1,105 @@
+import string;
+import lingo/pegcode/driver;
+
+import fraction;
+
+export {
+    ArExp ::= ArSum, ArProd, ArInt, ArSub, ArDiv, ArVar, ArMinus;
+    ArSum(l:ArExp, r:ArExp);
+    ArProd(l:ArExp, r:ArExp);
+    ArSub(l:ArExp, r:ArExp);
+    ArDiv(l:ArExp, r:ArExp);
+    ArInt(val:int);
+    ArVar(var:string);
+    ArMinus(expr:ArExp);
+
+    s2ar(s:string)->ArExp;
+    ar2s(expr: ArExp) -> string;
+    ar2i(expr: ArExp, vars: Tree<string, int>) -> Maybe<Fraction>;//дерево в дробь
+}
+
+ar2s(expr: ArExp) -> string {
+    switch (expr) {
+        ArSum(l, r): {
+            "(" + ar2s(l) + " + " + ar2s(r) + ")";
+        }
+        ArSub(l, r): {
+            "(" + ar2s(l) + " - " + ar2s(r) + ")";
+        }
+        ArProd(l, r): {
+            "(" + ar2s(l) + " * " + ar2s(r) + ")";
+        }
+        ArDiv(l, r): {
+            "(" + ar2s(l) + " / " + ar2s(r) + ")";
+        }
+        ArMinus(v): {
+            "(-" + ar2s(v) + ")";
+        }
+        ArInt(v): i2s(v);
+        ArVar(v): v;
+    }
+}
+
+s2ar(s:string) -> ArExp {
+    gram = "#include arr_gram.lingo";
+    parsic(compilePegGrammar(gram), s, defaultPegActions);
+}
+
+ar2i(expr: ArExp, vars: Tree<string, int>) -> Maybe<Fraction> {
+    switch(expr) {
+        ArInt(val): Some(Fraction(val, 1));
+        ArMinus(val): ar2i(ArSub(ArInt(0), val), vars);
+        ArVar(variable): {
+            switch(lookupTree(vars, variable)) {
+                Some(val): Some(Fraction(val, 1));
+                None(): None();
+            };
+        }
+        ArSum(l, r): {
+            switch(ar2i(l, vars)) {
+                Some(a):
+                    switch(ar2i(r, vars)) {
+                        Some(b): Some(frSum(a, b));
+                        None(): None();
+                    };
+                None(): None();
+            };
+        }
+        ArProd(l,r): {
+            switch(ar2i(l, vars)) {
+                Some(a): 
+                    switch(ar2i(r, vars)) {
+                        Some(b): Some(frProd(a, b));
+                        None(): None();
+                    };
+                None(): None();
+            };
+        }
+        ArSub(l,r): {
+            switch(ar2i(l, vars)) {
+                Some(a): 
+                    switch(ar2i(r,vars)) {
+                        Some(b): Some(frSub(a, b));
+                        None(): None();
+                    };
+                None(): None();
+            };
+        }
+        ArDiv(l,r): {
+            switch(ar2i(l, vars)) {
+                Some(a): 
+                    switch(ar2i(r, vars)) {
+                        Some(b): 
+                            if(b.num == 0) { 
+                                println("Division by 0");
+                                None(); 
+                            } else {
+                                Some(frDiv(a, b));
+                            };
+                        None(): None();
+                    };
+                None(): None();
+            };
+        }
+    }
+}

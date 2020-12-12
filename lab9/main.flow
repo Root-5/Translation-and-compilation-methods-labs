@@ -1,0 +1,21 @@
+import expr;
+import derivative;
+import polynom;
+
+main() {
+    s = "(((-a) + 5) / (a + 10))";
+    vars = setTree(makeTree(), "a", 20);
+    switch(ar2i(s2ar(s), vars)) {
+        Some(v): println(fr2s(v));
+        None(): println("error");
+    }
+
+    expr = "(x*(x+3))";
+    println(ar2s(simplify(derive(s2ar(expr), ArVar("x")))));
+
+    polynomial = "(((80 - 23) * (x*y)) / ((y*y) - (x*y)))";
+    switch(ar2rf(s2ar(polynomial))) {
+        Some(rf): println(rf2s(reduceVariables(rf)));
+        None(): println("error");
+    }
+}

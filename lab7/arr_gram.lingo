@@ -1,0 +1,10 @@
+S =  plus | mult | div   | var | sub | int ;
+SPACE = (' ' | '\t' | '\r' | '\n');
+plus = SPACE* "(" SPACE* S:l SPACE* "+" SPACE* S:r SPACE* ")" SPACE* {Add(:l,:r)} | SPACE* int;
+mult = SPACE* "(" SPACE* S:l SPACE* "*" SPACE* S:r SPACE* ")" SPACE* {Mul(:l,:r)} | SPACE* plus:l SPACE* "*" SPACE* S:r {Mul(:l,:r)} | SPACE* var:l SPACE* "*" SPACE* S:r {Mul(:l,:r)};
+sub = SPACE* "(" SPACE* S:l SPACE* "-" SPACE* S:r SPACE* ")" SPACE* {Sub(:l,:r)} | SPACE* plus:l SPACE* "-" SPACE* S:r SPACE* {Sub(:l,:r)} | SPACE* "-" SPACE* S:x SPACE* {Neg(:x)};
+div = SPACE* "(" SPACE* S:l SPACE* "/" SPACE* S:r SPACE* ")" SPACE* {Div(:l,:r)} | SPACE* plus:l SPACE* "/" SPACE* S:r SPACE* {Div(:l,:r)};
+digit = '0'-'9';
+int = digit + $s{IntConst(s2i(:s))};
+char = 'a'-'z';
+var = char+$S{Var(:S)};
