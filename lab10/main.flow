@@ -1,0 +1,263 @@
+import string;
+import lingo/pegcode/driver;
+
+Expr::= IntConst, Mul, Add, Sub, Div, Neg, Var;
+
+IntConst: (value:int);
+Mul: (l:Expr, r:Expr);
+Add: (l:Expr, r:Expr);
+Div: (l:Expr, r:Expr);
+Sub: (l:Expr, r:Expr);
+Neg: (arg:Expr);
+
+Var: (name:string);
+Rule_(pattern:Expr, replacement:Expr);
+
+Rational(n:int, d:int);
+
+rational(a:int) ->Rational{
+    Rational(a,1);
+}
+
+Rational2s(r:Rational){
+    if(r.d == 1) {
+        i2s(r.n);
+    } else {
+        i2s(r.n)+"/"+i2s(r.d);
+    }
+}
+
+str2rule(pattern:string, replacement:string)->Rule_
+{
+    Rule_(str2expr(pattern), str2expr(replacement));
+}
+
+rules = [
+    str2rule("((x - z) + (y + z))", "(x + y)"),
+    str2rule("((x + z) + (y - z))", "(x + y)"),
+    str2rule("(x + x)", "(2 * x)"),
+    str2rule("- -x", "x"),
+    str2rule("(x + y)", "(y + x)"),
+    str2rule("(x * y)", "(y * x)"),
+    str2rule("(x + 0)", "x"),
+    str2rule("(x - 0)", "x"),
+    str2rule("(x - x)", "0"),
+    str2rule("(x + -x)", "0"),
+    str2rule("(-x + x)", "0"),
+    str2rule("(x * 0)", "0"),
+    str2rule("(x * 1)", "x"),
+    str2rule("(0 + x)", "x"),
+    str2rule("(0 * x)", "0"),
+    str2rule("(1 * x)", "x"),
+    str2rule("(x * -1)", "-x"),
+    str2rule("(-1 * x)", "-x"),
+    str2rule("(x / x)", "1"),
+    str2rule("(0 / x)", "0"),
+    str2rule("((x * z) + (y * z))", "((x + y) * z)"),
+    str2rule("((x * z) + (y * z))", "((x + y) * z)"),
+    str2rule("((x + y) * z)", "((x * z) + (y * z))"),
+    str2rule("((x + y) + z)", "(x + (y + z))"),
+    str2rule("((x * y) * z)", "(x * (y * z))"),
+    str2rule("((x * x) - (y * y))", "((x - y) * (x + y))"),
+    str2rule("((x - y) * (x + y))", "((x * x) - (y * y))"),
+    str2rule("((x - y) * (x - y))", "(((x * x) + (y * y)) - (2 * (x * y)))"),
+    str2rule("(((x * x) + (y * y)) - (2 * (x * y)))", "((x - y) * (x - y))"),
+    str2rule("((x + y) * (x + y))", "(((x * x) + (y * y)) + (2 * (x * y)))"),
+    str2rule("(((x * x) + (y * y)) + (2 * (x * y)))", "((x + y) * (x + y))"),
+    str2rule("(((x * x) + (y * y)) + (2 * (x * y)))", "((x + y) * (x + y))")
+];
+
+str2expr(str: string) -> Expr {
+    lng = "#include arr_gram.lingo";
+    parsic(compilePegGrammar(lng), str, defaultPegActions);
+}
+
+expr2str(expr: Expr) -> string {
+    switch(expr) {
+        IntConst(c): i2s(c);
+        Mul(l, r): "("  + expr2str(l) + "*" + expr2str(r) + ")";
+        Add(l, r): "("  + expr2str(l) + "+" + expr2str(r) + ")";
+        Sub(l, r): "("  + expr2str(l) + "-" + expr2str(r) + ")";
+        Div(l, r): "("  + expr2str(l) + "/" + expr2str(r) + ")";
+        Neg(v): "("  + "-" + expr2str(v) + ")";
+        Var(n): n;
+    }
+}
+
+cost(e: Expr)->int 
+{
+    switch(e)
+    {
+        IntConst(c):1;
+        Neg(arg): cost(arg)+1;
+        Var(_): 1;
+        Add(l, r):cost(l)+cost(r);
+        Mul(l, r):cost(l)+cost(r);
+        Div(l, r):cost(l)+cost(r);
+        default: 0;
+    }
+}
+
+Change(expr: Expr, subst: Tree<string, Expr>) -> Expr {
+	switch (expr) {
+        IntConst(c): expr;
+		Mul(l, r): Mul(Change(l, subst), Change(r, subst));
+        Add(l, r): Add(Change(l, subst), Change(r, subst));
+		Sub(l, r): Sub(Change(l, subst), Change(r, subst));
+		Div(l, r): Div(Change(l, subst), Change(r, subst));
+		Neg(v): Neg(Change(v, subst));
+		Var(n): lookupTreeDef(subst, n, expr);
+	}
+}
+
+simplify(e: Expr, rules: [Rule_])->Expr
+{
+    to_ret = fold
+        (rules, e, \expr, rl ->
+        
+        switch(matchAll(e, rl.pattern))
+        {
+
+            None(): expr;
+            
+            Some(_context):
+            { 
+                to_change = Change(rl.replacement, _context);
+                
+                if(cost(to_change)<=cost(expr))
+                    to_change
+                else
+                    expr;
+            }
+        }
+        );
+    to_ret;
+}
+
+simplifyAll(e: Expr)->Expr{
+    simplify(e, rules);
+}
+
+matchAll(test: Expr, pattern: Expr)->Maybe<Tree<string, Expr>>
+{
+    match(test, pattern, makeTree());
+}
+
+match(test: Expr, pred: Expr, _context:Tree<string, Expr>)->Maybe<Tree<string, Expr>>
+{
+    switch(pred)
+    { 
+        IntConst(c_1): 
+        {
+			switch(test) {
+				IntConst(c_2): {
+                    if (c_1 == c_2) 
+                        Some(_context)
+                    else 
+                        None();
+                }
+				default: None();
+			}
+		}
+
+        Add(l, r):
+        {
+            switch(test){
+                Add(l_1, r_1):
+                {
+                    switch(match(simplifyAll(l_1), l, _context))
+                    {
+                        Some(context): match(simplifyAll(r_1), r, context);
+                        default: None();
+                    }
+                }
+                default: None();
+            };
+        }
+
+        Mul(l, r):
+        {
+            switch(test){
+                Mul(l_1, r_1):
+                {
+                    switch(match(simplifyAll(l_1), l, _context))
+                    {
+                        Some(context): match(simplifyAll(r_1), r, context);
+                        default: None();
+                    }
+                }
+                default: None();
+            };
+        }
+
+        Div(l, r):
+        {
+            switch(test){
+                Div(l_1, r_1):
+                {
+                    switch(match(simplifyAll(l_1), l, _context))
+                    {
+                        Some(context): match(simplifyAll(r_1), r, context);
+                        default: None();
+                    }
+                }
+                default: None();
+            };
+        }
+
+        Sub(l, r):
+        {
+            switch(test){
+                Sub(l_1, r_1):
+                {
+                    switch(match(simplifyAll(l_1), l, _context))
+                    {
+                        Some(context): match(simplifyAll(r_1), r, context);
+                        default: None();
+                    }
+                }
+                default: None();
+            };
+        }
+
+        Neg(a1):
+        { 
+            switch(test)
+            {
+                Neg(a2): match(a2, a1, _context);
+                default: None();
+            }
+        }
+        
+        Var(name):
+        {
+            switch (lookupTree(_context, name)) 
+            {
+                None(): Some(setTree(_context, name, test));
+                Some(expr): 
+                {
+                    if(expr == test)
+                        Some(_context)
+                    else 
+                        None();
+                }
+            }
+        }
+        
+    }
+}
+
+
+main() 
+{
+    example_1 = "(-1 * x)";
+    example_2 = "((-x + x) + y)";
+    example_3 = "((x + y) * z)";
+    example_4 = "((x * z) + (x * y))";
+    example_5 = "((x * 0) * 1)";
+
+    e = str2expr(example_5);
+    println(expr2str(simplify(e, rules)));
+
+    quit(0);
+}

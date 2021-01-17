@@ -1,0 +1,15 @@
+expr = int | mul | add | sub | div | neg | var;
+int = digit + $e { IntConst(s2i($e)) };
+mul = "(" ws expr:l ws "*" ws expr:r ws ")" { Mul(:l, :r) };
+add = "(" ws expr:l ws "+" ws expr:r ws ")" { Add(:l, :r) };
+sub = "(" ws expr:l ws "-" ws expr:r ws ")" { Sub(:l, :r) };
+div = "(" ws expr:l ws "/" ws expr:r ws ")" { Div(:l, :r) };
+neg = "-" ws expr:e { Neg(:e) };
+var = letter + $e { Var($e) };
+digit = '0'-'9';
+letter = 'a' - 'z';
+s = ws_+;
+ws = ws_*;
+ws_ = ' ' | '\\t' | '\\n' | '\\r';
+
+
